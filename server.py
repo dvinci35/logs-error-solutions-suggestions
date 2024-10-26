@@ -34,6 +34,7 @@ def read_config(file_path: str) -> Dict:
     try:
         with open(file_path, "r") as f:
             config = yaml.safe_load(f)
+        return config
     except yaml.YAMLError as e:
         print(f"Error parsing YAML file: {e}")
         raise  # Re-raise the YAMLError after printing the message
