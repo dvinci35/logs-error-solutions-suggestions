@@ -1,4 +1,4 @@
-# pipeline_params:
+# Parameters for chat completion model
 chat_completion_model_params:
   # pretrained_model_name_or_path: "unsloth/Llama-3.2-1B-Instruct-bnb-4bit"
   pretrained_model_name_or_path: meta-llama/Llama-3.2-1B-Instruct
@@ -6,17 +6,15 @@ chat_completion_model_params:
   device_map: 'auto'
   token: "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"
 
+# Prompt for extracting log messages.  The {input_logs} placeholder will be replaced
+# with the actual log input at runtime.
 log_extraction_prompt: "To extract the log messages from the provided logs and present them in a line-by-line format, please follow these instructions:\n\n1. For each log entry, identify the log message that follows the timestamp and machine ID.\n2. Do not include any extraneous information in the output, including the introductory line.\n3. Present the log messages in a format similar to the example provided, with each message on a new line.\n\nGiven the input logs:\n1117838976 2005.06.03 R02-M1-N0-C:J12-U11 2005-06-03-15.49.36.156884 R02-M1-N0-C:J12-U11 RAS KERNEL INFO instruction cache parity error corrected\n1117838978 2005.06.03 R02-M1-N0-C:J12-U11 2005-06-03-15.49.38.026704 R02-M1-N0-C:J12-U11 RAS KERNEL INFO instruction cache parity error corrected\n1117842440 2005.06.03 R23-M0-NE-C:J05-U01 2005-06-03-16.47.20.730545 R23-M0-NE-C:J05-U01 RAS KERNEL INFO 63543 double-hummer alignment exceptions\n1117842974 2005.06.03 R24-M0-N1-C:J13-U11 2005-06-03-16.56.14.254137 R24-M0-N1-C:J13-U11 RAS KERNEL INFO 162 double-hummer alignment exceptions\n\nThe expected output should be:\ninstruction cache parity error corrected\ninstruction cache parity error corrected\n63543 double-hummer alignment exceptions\n162 double-hummer alignment exceptions\n\ninput: \n{input_logs}"
 
+# Prompt for explaining the extracted logs. The {input_logs} placeholder will be 
+# replaced with the extracted logs at runtime.
 log_explanation_prompt: "Analyze the provided log data to determine the main application or service that is experiencing issues. Please provide the following key pieces of information:\n\n1. What is the name of the main application or service that appears to be having problems based on the log data?\n\n2. What specific exceptions or error messages are mentioned in the logs that indicate something went wrong? Please list out the key exceptions that stand out.\n\n3. Based on the log information, what do you think is the root cause or underlying issue causing the application/service to fail or malfunction? Try to identify the most likely cause.\n\n4. What remedial actions should be taken to resolve the issue and get the application/service back to normal operation? Provide specific steps or changes that could help fix the problem based on the log analysis.\n\n5. In addition to the above, please also include:\n- The application/service name (if not already mentioned in the log data)\n- Any additional details you notice in the logs that may be relevant to understanding the issue and potential fixes\n- Suggestions for preventative measures to avoid this issue from recurring in the future\n\nPlease analyze the log data in detail and provide a clear, actionable analysis of the problem and solutions.\n\ninput: \n{input_logs}\n\n"
 
+# Parameters for the text streamer
 streamer_params: 
-  skip_prompt: true
-  skip_special_tokens: true
-
-generation_params:
-  # return_full_text: false
-  max_new_tokens: 1024
-  handle_long_generation: hole
-  # temperature: 0.8
-  # do_sample: true
+  skip_prompt: true # Skip the input prompt while sending the generated words in response
+  skip_special_tokens: true # Skip the special tokens like EOS tokens, BOS tokens, etc.
