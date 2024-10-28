@@ -23,6 +23,14 @@ The server's streaming output can be modified on the client-side to display the 
 
 The code is formatted using Black for readability.
 
+The server container uses Models available freely on Huggingface. You need a huggingface account to access gated open-source models.
+
+The code was test on 4GB RTX3050 laptop GPU and operating system is Ubuntu 24.04.1.
+
+Two models were used for testing purposes:
+- `meta-llama/Llama-3.2-1B-Instruct`
+- `microsoft/Phi-3.5-mini-instruct`
+
 **UPDATES:**
 - Previously the the modules were stand-alone. Now the code to build and run the container is provided and whole project can be used as is in production (if the intended use case can be fulfilled.)
 - The server will use the model quantization if the gpu is available otherwise it will load the model in gpu (assuming a non-quantized model path/name is provided.)
