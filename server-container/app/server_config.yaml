@@ -1,9 +1,9 @@
 # Parameters for chat completion model
 chat_completion_model_params:
-  pretrained_model_name_or_path: meta-llama/Llama-3.2-8B-Instruct
+  pretrained_model_name_or_path: microsoft/Phi-3.5-mini-instruct
   torch_dtype: 'auto'
   device_map: 'auto'
-  token: your_token
+  token: None
 
 # Prompt for extracting log messages.  The {input_logs} placeholder will be replaced
 # with the actual log input at runtime.

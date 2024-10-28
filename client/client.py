@@ -14,7 +14,7 @@ def read_config(file_path: str) -> Dict:
         Returns an empty dictionary if the file is not found or if there's an error during parsing.
 
     Raises:
-        yaml.YAMLError: If there's an error parsing the YAML file.  
+        yaml.YAMLError: If there's an error parsing the YAML file.
                       The original exception is re-raised after printing an error message.
     """
     try:
@@ -28,8 +28,9 @@ def read_config(file_path: str) -> Dict:
         raise
 
 
-
-def send_request(host: str, port: int, endpoint_name: str, request_data: dict) -> requests.Response:
+def send_request(
+    host: str, port: int, endpoint_name: str, request_data: dict
+) -> requests.Response:
     """
     Sends a POST request to a specified endpoint.
 
@@ -95,9 +96,9 @@ def generate_word(
     for chunk in response.iter_content(chunk_size=None, decode_unicode=True):
         chunk = json.loads(chunk)
         new_text = chunk["new_word"]
-        yield new_text # Yield the generated word for immediate use
+        yield new_text  # Yield the generated word for immediate use
         # Can be used for storing the outputs and provide reports later or for many various purposes.
-        generated_text += new_text 
+        generated_text += new_text
 
     # Update the conversation history if provided
     if conv is not None:
@@ -113,13 +114,17 @@ def main(configs):
     The generated text is streamed to the console.
 
     Args:
-        configs (dict): A dictionary containing configuration parameters for 
+        configs (dict): A dictionary containing configuration parameters for
                          text generation and connection.  It should contain
                          keys "generation_params" and "connection_params"
                          with appropriate values.
     """
-    generation_params = configs["generation_params"] # Initial generation parameters from config
-    connection_params = configs["connection_params"] # Connection parameters for the text generation service
+    generation_params = configs[
+        "generation_params"
+    ]  # Initial generation parameters from config
+    connection_params = configs[
+        "connection_params"
+    ]  # Connection parameters for the text generation service
 
     while True:
         try:
@@ -135,12 +140,12 @@ def main(configs):
                 connection_params=connection_params,
                 generation_params=generation_params,
             ):
-                print(word, end="", flush=True) # Print immediately without buffering
-            
-            print() # Newline after generation
+                print(word, end="", flush=True)  # Print immediately without buffering
+
+            print()  # Newline after generation
             print("==" * 20, "Finished", "==" * 20, "\n")
         except KeyboardInterrupt:
-            exit() # Exit gracefully on Ctrl+C
+            exit()  # Exit gracefully on Ctrl+C
 
 
 if __name__ == "__main__":

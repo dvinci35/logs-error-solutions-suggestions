@@ -12,7 +12,7 @@ Provide Suggestions to solve the errors in logs using the Gen AI.
 
 ## Overview
 
-This project employs a prompt-based architecture, utilizing a large language model (LLM) for log analysis.  Input logs are fed to the LLM, which extracts relevant log messages, removing noise like timestamps and log levels.  The extracted messages are then analyzed by the model to determine the root cause, suggest solutions, and provide further guidance.
+This project employs a prompt-based architecture, utilizing a large language model (LLM) for log analysis. Input logs are fed to the LLM, which extracts relevant log messages, removing noise like timestamps and log levels.  The extracted messages are then analyzed by the model to determine the root cause, suggest solutions, and provide further guidance.
 
 The system comprises two modules:
 
@@ -23,13 +23,22 @@ The server's streaming output can be modified on the client-side to display the 
 
 The code is formatted using Black for readability.
 
+**UPDATES:**
+- Previously the the modules were stand-alone. Now the code to build and run the container is provided and whole project can be used as is in production (if the intended use case can be fulfilled.)
+- The server will use the model quantization if the gpu is available otherwise it will load the model in gpu (assuming a non-quantized model path/name is provided.)
+
 ## Installation
 
 This project supports Python 3.11 for both client and server.
 
 ### Server Installation
 
-1. **Install Server Dependencies:**
+**UPDATED INSTRUCTIONS:**
+1. **Install the docker** using the [official documentation](https://docs.docker.com/engine/install/). The testing system is ubuntu 24.04.1 LTS
+
+2. If you have GPU enabled system, then to use the gpu in docker container make sure to install docker cuda toolkit from the [official documentation](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/latest/install-guide.html)
+
+<!-- 1. **Install Server Dependencies:**
 
    ```bash
    python3 -m pip install -r server_requirements.txt
@@ -40,58 +49,82 @@ This project supports Python 3.11 for both client and server.
    ```bash
    uvicorn server:app --port 9300 --host 0.0.0.0 
    ```
-   This command starts the server on port 9300, making it accessible from any network interface (`0.0.0.0`).
+   This command starts the server on port 9300, making it accessible from any network interface (`0.0.0.0`). -->
 
 
 ### Client Installation
 
+The testing system is ubuntu 24.04.1 LTS, and the python version is 3.11
+
 1. **Install Client Dependencies:**
 
    ```bash
-   python3 -m pip install -r client_requirements.txt
+   python3 -m pip install -r client/client_requirements.txt
    ```
 
-2. **Configuration:**  Place the `client_config.yaml` configuration file in the same directory as `client.py`.  This file should contain necessary settings for connecting to the server (e.g., host and port).  
+2. **Configuration:**  Place the `client_config.yaml` configuration file in the same directory as `client.py`.  This file should contain necessary settings for connecting to the server (e.g., host and port). 
 
-The client only requires the `pyaml` library to read the configuration file, it can rather be hardcoded but not recommended best practice for production.
-
-3. **Run the Client:**
-
-   ```bash
-   python3 client.py
-   ```
+   The client only requires the `pyaml` library to read the configuration file. The configurations can rather be hardcoded but not recommended best practice for production.
 
 # Usage
 
-Configure model and generation parameters within the respective YAML configuration files for the server and client.
+**Updated Instructions**: 
 
-Recommended Models:
+Configure model and generation parameters within the [`server_config.yaml`](server-container/app/server_config.yaml) and Port to be exposed in the [`Dockerfile`](./server-container/Dockerfile)
 
-Larger models generally yield better results. The following are recommended:
+**Make sure to add your access token when using the gated model**
+
+```yaml
+chat_completion_model_params:
+   token: your_token_here
+```
+
+**Recommended Models:** Larger models generally yield better results. The following are recommended:
 - `meta-llama/Llama-3.2-8B-Instruct`
 - `meta-llama/Llama-3.2-70B-Instruct`
 - `mistralai/Ministral-8B-Instruct-2410`
 
-**Make sure to add your access token in the `server_config.yaml` when using the gated model**
+## Building and running the server image
+- **To Build the Server Image**:
 
-**Providing Context**: For optimal performance, provide more than 5 log entries to give the model sufficient context. This leads to more accurate analysis and better suggestions.
+   Change the configurations in the [`server_config.yaml`](server-container/app/server_config.yaml) file to modify as per requirements. 
 
+   The server will be hosted on the port `9300`. To change it modify in [`Dockerfile`](server-container/Dockerfile)
+   The docker container will install all the dependencies required to run the server.
+   ```bash
+   cd server-container/
+   docker build -t inf:inf .
+   ```
+
+- **To run the server image:**
+
+   Run the following command to run the server container:
+   ```
+   docker run --gpus all -p 9300:9300 inf:inf
+   ```
 
 ## Client Interaction:
 
-Upon execution, the client will prompt the user to input the logs they wish to analyze. Copy and paste the relevant log entries into the console.
+Make sure to write the correct **Host name** and **port number** in the [client configurations](client/client_config.yaml)
+
+To run the client simply execute the following command:
 
 ```bash
-$ python3 client.py
-INPUT: Dec 10 06:55:46 LabSZ sshd[24200]: Invalid user webmaster from 173.234.31.186
-Dec 10 06:55:46 LabSZ sshd[24200]: input_userauth_request: invalid user webmaster [preauth]
-Dec 10 06:55:46 LabSZ sshd[24200]: pam_unix(sshd:auth): check pass; user unknown
-Dec 10 06:55:46 LabSZ sshd[24200]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=173.234.31.186 
-Dec 10 06:55:48 LabSZ sshd[24200]: Failed password for invalid user webmaster from 173.234.31.186 port 38926 ssh2
-Dec 10 06:55:48 LabSZ sshd[24200]: Connection closed by 173.234.31.186 [preauth]
-Dec 10 07:02:47 LabSZ sshd[24203]: Connection closed by 212.47.254.145 [preauth]
+cd client/
+python3 client.py
 ```
 
+Upon execution, the client will prompt the user to input the logs they wish to analyze. Copy and paste the relevant log entries into the console.
+
+**Providing Context**: For optimal performance, provide more than 5 log entries to give the model sufficient context. This leads to more accurate analysis and better suggestions.
+
+```bash
+python3 client.py
+INPUT: Dec 10 06:55:46 LabSZ sshd[24200]: Invalid user webmaster from 173.234.31.186\nDec 10 06:55:46 LabSZ sshd[24200]: input_userauth_request: invalid user webmaster [preauth]\nDec 10 06:55:46 LabSZ sshd[24200]: pam_unix(sshd:auth): check pass; user unknown\nDec 10 06:55:46 LabSZ sshd[24200]: pam_unix(sshd:auth): authentication failure; logname= uid=0 euid=0 tty=ssh ruser= rhost=173.234.31.186 \nDec 10 06:55:48 LabSZ sshd[24200]: Failed password for invalid user webmaster from 173.234.31.186 port 38926 ssh2\nDec 10 06:55:48 LabSZ sshd[24200]: Connection closed by 173.234.31.186 [preauth]\nDec 10 07:02:47 LabSZ sshd[24203]: Connection closed by 212.47.254.145 [preauth]
+```
+
+
+The ouput is similar to the following:
 ```bash
 ======================================== Log Analysis ======================================== 
 

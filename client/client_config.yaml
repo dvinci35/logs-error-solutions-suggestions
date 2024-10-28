@@ -6,6 +6,6 @@ generation_params:
 
 # The parameters to establish the connection to the server
 connection_params:
-  host: "192.168.1.109"
+  host: "172.16.222.12"
   port: 9300
   endpoint_name: "chat_completion"

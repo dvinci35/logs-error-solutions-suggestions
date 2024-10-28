@@ -11,10 +11,14 @@ from transformers import (
 import asyncio
 from pathlib import Path
 from threading import Thread
+import os
+import torch
 
 from typing import Dict
-import yaml, json
-from json import JSONDecodeError
+import yaml
+import json
+
+# from json import JSONDecodeError
 
 
 def read_config(file_path: str) -> Dict:
@@ -28,7 +32,7 @@ def read_config(file_path: str) -> Dict:
         Returns an empty dictionary if the file is not found or if there's an error during parsing.
 
     Raises:
-        yaml.YAMLError: If there's an error parsing the YAML file.  
+        yaml.YAMLError: If there's an error parsing the YAML file.
                       The original exception is re-raised after printing an error message.
     """
     try:
@@ -62,8 +66,10 @@ async def chat_completion(request):
         payload = await request.body()
         payload = json.loads(payload)
 
-        input_messages = payload["input_messages"] # Extract input logs
-        generation_params = payload["generation_params"] # Extract generation parameters
+        input_messages = payload["input_messages"]  # Extract input logs
+        generation_params = payload[
+            "generation_params"
+        ]  # Extract generation parameters
 
         # 2. Create a response queue for this specific request
         response_q = asyncio.Queue()
@@ -73,7 +79,9 @@ async def chat_completion(request):
         #       - input_messages: The messages to be processed.
         #       - response_q: The queue where the model will put the generated text stream.
         #       - generation_params: Parameters for text generation (e.g., max_tokens, temperature).
-        await request.app.model_queue.put((input_messages, response_q, generation_params))
+        await request.app.model_queue.put(
+            (input_messages, response_q, generation_params)
+        )
 
         # 4. Define an asynchronous generator for streaming the response
         async def word_streamer():
@@ -83,30 +91,36 @@ async def chat_completion(request):
             This inner function retrieves the generated text stream from the response queue
             and yields JSON payloads containing the new word and the complete generated text so far.
             """
-            streamer = await response_q.get() # Wait for the model to put the streamer in the queue
+            streamer = (
+                await response_q.get()
+            )  # Wait for the model to put the streamer in the queue
             generated_text = ""
             for word in streamer:
                 generated_text += word
-                sending_payload = json.dumps( # Create JSON payload for each word
+                sending_payload = json.dumps(  # Create JSON payload for each word
                     dict(new_word=word, full_response=generated_text)
                 )
-                yield sending_payload # Yield the payload to the client
+                yield sending_payload  # Yield the payload to the client
 
         # 5. Return a StreamingResponse to handle the asynchronous generator
         return StreamingResponse(word_streamer())
-    
+
     except json.JSONDecodeError:
         return JSONResponse({"error": "Invalid JSON payload"}, status_code=400)
-    
+
     except Exception as e:  # Catch any other exceptions
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+def homepage(request):
+    health_check = {"status": "OK", "message": "Server is healthy"}
+    return JSONResponse(health_check)
 
 
 # Create a Starlette app
 app = Starlette(
     routes=[
+        Route("/", homepage, methods=["GET"]),
         Route("/chat_completion", chat_completion, methods=["POST"]),
     ],
 )
@@ -125,17 +139,20 @@ async def server_loop(the_input_queue, config):
         config (dict): A dictionary containing configuration parameters for the model, tokenizer,
                        and prompts.
     """
-    # 1. Configure and load the quantized language model
-    quantization_config = BitsAndBytesConfig(
-        load_in_4bit=True,  # Enables 4-bit quantization
-        bnb_4bit_quant_type="nf4",  #  NF4 (NormalFloat4) is generally recommended
-        bnb_4bit_use_double_quant=True,  # Helps with accuracy (especially for larger models)
-    )
+    if torch.cuda.is_available():
+        # 1. Configure and load the quantized language model
+        quantization_config = BitsAndBytesConfig(
+            load_in_4bit=True,  # Enables 4-bit quantization
+            bnb_4bit_quant_type="nf4",  # NF4 (NormalFloat4) is generally recommended
+            bnb_4bit_use_double_quant=True,  # Helps with accuracy (especially for larger models)
+        )
 
     # LOAD THE MODELS REQUIRED
     chat_completion_model = AutoModelForCausalLM.from_pretrained(
         **config["chat_completion_model_params"],
-        quantization_config=quantization_config,
+        quantization_config=(
+            quantization_config if torch.cuda.is_available() else None
+        ),
     )
     chat_model_tokenizer = AutoTokenizer.from_pretrained(
         config["chat_completion_model_params"]["pretrained_model_name_or_path"],
@@ -160,7 +177,6 @@ async def server_loop(the_input_queue, config):
         # Get the next request from the queue
         (input_messages, response_q, generation_params) = await the_input_queue.get()
 
-
         # Log Extraction: Extract relevant logs using the language model
         log_extraction_conv = [
             {"role": "system", "content": "You are a helpful assistant"},
@@ -177,7 +193,6 @@ async def server_loop(the_input_queue, config):
             return_full_text=False,
         )[0]["generated_text"]
 
-
         # Log Explanation: Generate explanations for the extracted logs
         log_explanation_prompt = [
             {"role": "system", "content": "You are a helpful assistant"},
@@ -193,10 +208,10 @@ async def server_loop(the_input_queue, config):
         # Using a thread here allows the main loop to continue processing other requests
         # while the model is generating the response.
         trd = Thread(
-            target=chat_completion_pipeline, # The pipeline function to run
-            kwargs=dict( # Keyword arguments for the pipeline
+            target=chat_completion_pipeline,  # The pipeline function to run
+            kwargs=dict(  # Keyword arguments for the pipeline
                 text_inputs=log_explanation_prompt,
-                streamer=streamer, # Use the streamer for streaming output
+                streamer=streamer,  # Use the streamer for streaming output
                 **generation_params,  # Client-provided generation parameters
             ),
         )
@@ -217,20 +232,22 @@ async def startup_event():
     `app.model_queue` to make it accessible from request handlers, reads the configuration,
     and starts the `server_loop` task to process the requests.
     """
-    # CONFIG_FILE_PATH = environ.get("CONFIG_FILE_PATH")
-    CONFIG_FILE_PATH = "./server_config.yaml"
+    CONFIG_FILE_PATH = os.environ.get("CONFIG_FILE_PATH")
+    # CONFIG_FILE_PATH = "./server_config.yaml"
 
     try:  # Add error handling
         input_queue = asyncio.Queue()
 
-        app.model_queue = input_queue # Make the queue accessible via the app instance
+        app.model_queue = input_queue  # Make the queue accessible via the app instance
         config = read_config(Path(CONFIG_FILE_PATH))
         asyncio.create_task(server_loop(the_input_queue=input_queue, config=config))
-        
+
         print("Server loop started successfully.")
 
     except FileNotFoundError:
-        print(f"Error: Config file not found at {CONFIG_FILE_PATH}")  # Handle file not found error
+        print(
+            f"Error: Config file not found at {CONFIG_FILE_PATH}"
+        )  # Handle file not found error
         # Consider raising an exception or exiting the application if the config is crucial
     except Exception as e:  # Catch other potential errors during startup
         print(f"An error occurred during startup: {e}")
